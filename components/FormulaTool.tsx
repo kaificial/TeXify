@@ -28,7 +28,8 @@ const FormulaTool: React.FC = () => {
     useEffect(() => {
         if (state === AppState.DRAWING && canvasRef.current) {
             const canvas = canvasRef.current;
-            const ctx = canvas.getContext('2d');
+            // use willReadFrequently for better performance with getImageData
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             if (ctx) {
                 ctx.strokeStyle = isEraser ? '#FFFFFF' : '#000';
                 ctx.lineWidth = strokeSize;
@@ -64,7 +65,7 @@ const FormulaTool: React.FC = () => {
 
     const saveHistory = () => {
         const canvas = canvasRef.current;
-        const ctx = canvas?.getContext('2d');
+        const ctx = canvas?.getContext('2d', { willReadFrequently: true });
         if (canvas && ctx) {
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const newHistory = history.slice(0, historyIndex + 1);
@@ -77,7 +78,7 @@ const FormulaTool: React.FC = () => {
     const undo = () => {
         if (historyIndex > 0) {
             const canvas = canvasRef.current;
-            const ctx = canvas?.getContext('2d');
+            const ctx = canvas?.getContext('2d', { willReadFrequently: true });
             if (canvas && ctx) {
                 const newIndex = historyIndex - 1;
                 ctx.putImageData(history[newIndex], 0, 0);
@@ -89,7 +90,7 @@ const FormulaTool: React.FC = () => {
     const redo = () => {
         if (historyIndex < history.length - 1) {
             const canvas = canvasRef.current;
-            const ctx = canvas?.getContext('2d');
+            const ctx = canvas?.getContext('2d', { willReadFrequently: true });
             if (canvas && ctx) {
                 const newIndex = historyIndex + 1;
                 ctx.putImageData(history[newIndex], 0, 0);
@@ -101,7 +102,7 @@ const FormulaTool: React.FC = () => {
     const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
         isDrawing.current = true;
         const pos = getPos(e);
-        const ctx = canvasRef.current?.getContext('2d');
+        const ctx = canvasRef.current?.getContext('2d', { willReadFrequently: true });
         if (ctx) {
             ctx.strokeStyle = isEraser ? '#FFFFFF' : '#000';
             ctx.lineWidth = strokeSize;
@@ -113,7 +114,7 @@ const FormulaTool: React.FC = () => {
     const draw = (e: React.MouseEvent | React.TouchEvent) => {
         if (!isDrawing.current) return;
         const pos = getPos(e);
-        const ctx = canvasRef.current?.getContext('2d');
+        const ctx = canvasRef.current?.getContext('2d', { willReadFrequently: true });
         ctx?.lineTo(pos.x, pos.y);
         ctx?.stroke();
     };
@@ -142,7 +143,7 @@ const FormulaTool: React.FC = () => {
 
     const clearCanvas = () => {
         const canvas = canvasRef.current;
-        const ctx = canvas?.getContext('2d');
+        const ctx = canvas?.getContext('2d', { willReadFrequently: true });
         if (canvas && ctx) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             saveHistory();
@@ -152,7 +153,7 @@ const FormulaTool: React.FC = () => {
 
     // clean up the image so the ai can read it better
     const preprocessImage = (canvas: HTMLCanvasElement): HTMLCanvasElement => {
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return canvas;
 
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -182,7 +183,7 @@ const FormulaTool: React.FC = () => {
         const dilatedCanvas = document.createElement('canvas');
         dilatedCanvas.width = canvas.width;
         dilatedCanvas.height = canvas.height;
-        const dilatedCtx = dilatedCanvas.getContext('2d');
+        const dilatedCtx = dilatedCanvas.getContext('2d', { willReadFrequently: true });
 
         if (dilatedCtx) {
             // white background
@@ -218,7 +219,7 @@ const FormulaTool: React.FC = () => {
     };
 
     const getCroppedCanvas = (canvas: HTMLCanvasElement) => {
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return canvas;
 
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -254,7 +255,7 @@ const FormulaTool: React.FC = () => {
         const croppedCanvas = document.createElement('canvas');
         croppedCanvas.width = croppedWidth;
         croppedCanvas.height = croppedHeight;
-        const croppedCtx = croppedCanvas.getContext('2d');
+        const croppedCtx = croppedCanvas.getContext('2d', { willReadFrequently: true });
 
         if (croppedCtx) {
             croppedCtx.fillStyle = '#FFFFFF';

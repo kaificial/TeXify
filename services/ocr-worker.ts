@@ -45,12 +45,47 @@ const sanitizeLatex = (text: string): string => {
 
     clean = clean.replace(/^```latex/, '').replace(/```$/, '');
 
+    // detect repetitive patterns that indicate recognition failure
+    const repeatedPattern = /(.{3,})\1{3,}/;
+    if (repeatedPattern.test(clean)) {
+        return "Recognition unclear. Please try drawing with thicker strokes.";
+    }
+
+    // too many backslashes in a row usually means garbage
+    if (/\\{4,}/.test(clean)) {
+        return "Recognition failed. Please redraw with clearer strokes.";
+    }
+
+    // check for excessive special characters which indicates noise
+    const specialCharCount = (clean.match(/[{}\\^_]/g) || []).length;
+    const letterCount = (clean.match(/[a-zA-Z0-9]/g) || []).length;
+    if (specialCharCount > letterCount * 2 && clean.length > 20) {
+        return "Could not parse handwriting. Try drawing larger symbols.";
+    }
+
     // catch when the ai hallucinates garbage
     if (clean.includes('(x,y)') && clean.length > 50) {
-        // too many equals signs means something went wrong
         const parts = clean.split('=');
         if (parts.length > 3) return "Recognition failed. Please try a clearer drawing.";
     }
+
+    // detect common hallucination patterns
+    if (clean.includes('\\text{') && clean.split('\\text{').length > 4) {
+        return "Recognition unclear. Please simplify your drawing.";
+    }
+
+    // check for unreasonably long output which usually means the model looped
+    if (clean.length > 500) {
+        // try to salvage by taking just the first meaningful part
+        const firstPart = clean.split(/[.,;]|\\\\|\\text/)[0].trim();
+        if (firstPart.length > 5 && firstPart.length < 200) {
+            return firstPart;
+        }
+        return "Output too long. Please draw smaller equations or simpler symbols.";
+    }
+
+    // remove common trailing artifacts
+    clean = clean.replace(/\s*\\?$/g, '').trim();
 
     return clean.trim();
 };
