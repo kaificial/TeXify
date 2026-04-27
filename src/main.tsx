@@ -1,7 +1,10 @@
-
+import './styles/index.css';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { migrateFromLocalStorage } from './services/storage';
+
+migrateFromLocalStorage();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

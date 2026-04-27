@@ -74,7 +74,7 @@ const sanitizeLatex = (text: string): string => {
 };
 
 self.onmessage = async (event) => {
-    const { type, image } = event.data;
+    const { type, id, image } = event.data;
 
     if (type === 'init') {
         await init();
@@ -102,9 +102,9 @@ self.onmessage = async (event) => {
             let output = result[0].generated_text;
             output = sanitizeLatex(output);
 
-            self.postMessage({ status: 'success', result: output });
+            self.postMessage({ status: 'success', id, result: output });
         } catch (error: any) {
-            self.postMessage({ status: 'error', message: error.message });
+            self.postMessage({ status: 'error', id, message: error.message });
         }
     }
 };

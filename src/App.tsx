@@ -2,6 +2,7 @@
 import React from 'react';
 import InteractiveBackground from './components/InteractiveBackground';
 import FormulaTool from './components/FormulaTool';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
 const App: React.FC = () => {
     return (
@@ -50,7 +51,9 @@ const App: React.FC = () => {
                     </p>
                 </div>
 
-                <FormulaTool />
+                <ErrorBoundary>
+                    <FormulaTool />
+                </ErrorBoundary>
 
                 {/* info section */}
                 <div className="w-full max-w-4xl mx-auto px-6 mt-24 grid grid-cols-1 md:grid-cols-2 gap-12 relative z-10">
