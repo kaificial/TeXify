@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #fcfcfc;
+  color: #1a1a1a;
+  overflow-x: hidden;
+}
+
+.latex-preview .katex-display {
+  margin: 0;
+}
