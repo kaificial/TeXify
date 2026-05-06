@@ -20,9 +20,7 @@ export function DrawingCanvas({ canvasRef, isEraser, strokeSize, onStrokeEnd }: 
         const rect = canvas.getBoundingClientRect();
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+        return { x: clientX - rect.left, y: clientY - rect.top };
     }
 
     function startDrawing(e: React.MouseEvent | React.TouchEvent) {
