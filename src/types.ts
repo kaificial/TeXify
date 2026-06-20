@@ -12,3 +12,5 @@ export interface HistoryItem {
   timestamp: number;
   image?: string;
 }
+
+export type ProcessingMode = 'local' | 'cloud';
