@@ -47,7 +47,7 @@ const App: React.FC = () => {
                         <span className="font-serif italic">instantly to LaTeX.</span>
                     </h1>
                     <p className="text-slate-400 text-base max-w-xl mx-auto leading-relaxed">
-                        Convert handwriting and photos into clean, production ready LaTeX. Powered by Local AI, focus on the math, we'll handle the code.
+                        Convert handwriting and photos into clean, production ready LaTeX. Choose between on-device AI or cloud-powered Claude.
                     </p>
                 </div>
 
@@ -56,17 +56,23 @@ const App: React.FC = () => {
                 </ErrorBoundary>
 
                 {/* info section */}
-                <div className="w-full max-w-4xl mx-auto px-6 mt-24 grid grid-cols-1 md:grid-cols-2 gap-12 relative z-10">
+                <div className="w-full max-w-4xl mx-auto px-6 mt-24 grid grid-cols-1 md:grid-cols-3 gap-12 relative z-10">
                     <div className="space-y-2">
-                        <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Under the hood</h3>
+                        <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Local AI</h3>
                         <p className="text-slate-500 text-xs leading-relaxed">
-                            Powered by <span className="text-slate-700">Xenova/texify</span> + Transformers.js. Runs in a Web Worker for smooth performance.
+                            Powered by <span className="text-slate-700">Xenova/texify</span> + Transformers.js. Runs entirely in your browser via WebGPU.
                         </p>
                     </div>
                     <div className="space-y-2">
-                        <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Privacy first</h3>
+                        <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Cloud AI</h3>
                         <p className="text-slate-500 text-xs leading-relaxed">
-                            All processing in your browser — images never leave your device. No servers, just local AI.
+                            Powered by <span className="text-slate-700">Claude</span>. Images are sent securely for processing — nothing is stored.
+                        </p>
+                    </div>
+                    <div className="space-y-2">
+                        <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Privacy</h3>
+                        <p className="text-slate-500 text-xs leading-relaxed">
+                            Local mode keeps everything on-device. Cloud mode sends images over HTTPS — no data is retained.
                         </p>
                     </div>
                 </div>

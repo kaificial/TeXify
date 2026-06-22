@@ -4,24 +4,73 @@ import { useTranscriptionHistory } from '../hooks/useTranscriptionHistory';
 import { useOcrWorker } from '../hooks/useOcrWorker';
 import { useCanvasHistory } from '../hooks/useCanvasHistory';
 import { useImageInput } from '../hooks/useImageInput';
+import { useWebGPU } from '../hooks/useWebGPU';
 import { DrawingToolbar } from './canvas/DrawingToolbar';
 import { DrawingCanvas } from './canvas/DrawingCanvas';
 import { ResultView } from './result/ResultView';
 import { HistoryGallery } from './history/HistoryGallery';
 import { ConfirmationModal } from './ui/ConfirmationModal';
-import { AppState, type HistoryItem } from '../types';
+import { AppState, type HistoryItem, type ProcessingMode } from '../types';
 
 const FormulaTool: React.FC = () => {
     const [state, setState] = useState<AppState>(AppState.IDLE);
     const [latex, setLatex] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
-    const ocr = useOcrWorker();
+
+    // mode selection — default depends on webgpu support
+    const webgpu = useWebGPU();
+    const defaultMode: ProcessingMode = webgpu.loading ? 'local' : (webgpu.supported ? 'local' : 'cloud');
+    const [mode, setMode] = useState<ProcessingMode>(defaultMode);
+
+    // sync default mode once webgpu detection finishes
+    React.useEffect(() => {
+        if (!webgpu.loading && !webgpu.supported) {
+            setMode('cloud');
+        }
+    }, [webgpu.loading, webgpu.supported]);
+
+    const ocr = useOcrWorker(mode);
     const [strokeSize, setStrokeSize] = useState<number>(4);
     const [isEraser, setIsEraser] = useState<boolean>(false);
     const [processedImage, setProcessedImage] = useState<string | null>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const canvasHistory = useCanvasHistory(canvasRef);
-    const imageInput = useImageInput((dataUrl) => { setPendingImageData(dataUrl); setShowConfirmation(true); });
+
+    // Downscale helper to reduce token usage and payload size
+    const resizeImage = (dataUrl: string, maxDim: number = 512): Promise<string> => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                let { width, height } = img;
+                if (width <= maxDim && height <= maxDim) {
+                    resolve(dataUrl);
+                    return;
+                }
+                const ratio = Math.min(maxDim / width, maxDim / height);
+                width = Math.floor(width * ratio);
+                height = Math.floor(height * ratio);
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, width, height);
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/png'));
+                } else {
+                    resolve(dataUrl); // fallback
+                }
+            };
+            img.src = dataUrl;
+        });
+    };
+
+    const imageInput = useImageInput(async (dataUrl) => { 
+        const resized = await resizeImage(dataUrl);
+        setPendingImageData(resized); 
+        setShowConfirmation(true); 
+    });
     const history_ = useTranscriptionHistory();
     const [showConfirmation, setShowConfirmation] = useState<boolean>(false);
     const [pendingImageData, setPendingImageData] = useState<string | null>(null);
@@ -70,13 +119,24 @@ const FormulaTool: React.FC = () => {
         minX = Math.max(0, minX - p); minY = Math.max(0, minY - p);
         maxX = Math.min(width, maxX + p); maxY = Math.min(height, maxY + p);
         const cw = maxX - minX, ch = maxY - minY;
+        
+        // Resize if too large to save tokens
+        const MAX_DIM = 512;
+        let finalWidth = cw;
+        let finalHeight = ch;
+        if (cw > MAX_DIM || ch > MAX_DIM) {
+            const ratio = Math.min(MAX_DIM / cw, MAX_DIM / ch);
+            finalWidth = Math.floor(cw * ratio);
+            finalHeight = Math.floor(ch * ratio);
+        }
+
         const cropped = document.createElement('canvas');
-        cropped.width = cw; cropped.height = ch;
+        cropped.width = finalWidth; cropped.height = finalHeight;
         const cCtx = cropped.getContext('2d', { willReadFrequently: true });
         if (cCtx) {
             cCtx.fillStyle = '#FFFFFF';
-            cCtx.fillRect(0, 0, cw, ch);
-            cCtx.drawImage(canvas, minX, minY, cw, ch, 0, 0, cw, ch);
+            cCtx.fillRect(0, 0, finalWidth, finalHeight);
+            cCtx.drawImage(canvas, minX, minY, cw, ch, 0, 0, finalWidth, finalHeight);
         }
         return preprocessImage(cropped);
     };
@@ -115,7 +175,8 @@ const FormulaTool: React.FC = () => {
 
     const handleConfirmProcess = () => {
         setShowConfirmation(false);
-        ocr.init();
+        // only init the local model for local mode
+        if (mode === 'local') ocr.init();
         if (pendingImageData) {
             handleProcessWithImage(pendingImageData);
             setPendingImageData(null);
@@ -127,9 +188,51 @@ const FormulaTool: React.FC = () => {
         setPendingImageData(null);
     };
 
+    // processing state text varies by mode
+    const processingLabel = mode === 'cloud'
+        ? 'sending to claude...'
+        : (ocr.progress > 0 && ocr.progress < 100 ? 'downloading...' : (ocr.status || 'running-inference...'));
+    const processingSubLabel = mode === 'cloud'
+        ? 'Cloud AI Processing'
+        : (ocr.progress > 0 && ocr.progress < 100 ? 'Initializing AI Model' : 'Transformer Layer Processing');
+
     return (
         <div className="w-full max-w-4xl mx-auto px-4 py-12 relative z-10">
             <div className="bg-white/70 backdrop-blur-xl border border-black/10 rounded-2xl shadow-2xl overflow-hidden transition-all duration-500">
+
+                {/* mode toggle — always visible at top */}
+                <div className="px-8 pt-6 pb-2 flex items-center justify-between">
+                    <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
+                        <button
+                            onClick={() => webgpu.supported !== false && setMode('local')}
+                            disabled={webgpu.supported === false}
+                            className={`px-4 py-2 text-[10px] uppercase tracking-widest rounded-lg transition-all ${
+                                mode === 'local'
+                                    ? 'bg-slate-900 text-white shadow-sm'
+                                    : webgpu.supported === false
+                                        ? 'text-slate-300 cursor-not-allowed'
+                                        : 'text-slate-500 hover:text-slate-900'
+                            }`}
+                            title={webgpu.supported === false ? 'WebGPU not supported in this browser' : 'Process locally using WebGPU'}
+                        >
+                            Local AI
+                        </button>
+                        <button
+                            onClick={() => setMode('cloud')}
+                            className={`px-4 py-2 text-[10px] uppercase tracking-widest rounded-lg transition-all ${
+                                mode === 'cloud'
+                                    ? 'bg-slate-900 text-white shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-900'
+                            }`}
+                            title="Process using Claude AI (cloud)"
+                        >
+                            Cloud AI
+                        </button>
+                    </div>
+                    <span className="text-[10px] uppercase tracking-widest text-slate-400">
+                        {mode === 'local' ? 'WebGPU · On-Device' : 'Claude · Secure Cloud'}
+                    </span>
+                </div>
 
                 {state === AppState.IDLE && (
                     <div className="p-8">
@@ -216,10 +319,10 @@ const FormulaTool: React.FC = () => {
                         <div className="w-12 h-12 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
                         <div className="text-center space-y-1">
                             <p className="font-light text-slate-900 tracking-tight lowercase">
-                                {ocr.progress > 0 && ocr.progress < 100 ? 'downloading...' : (ocr.status || 'running-inference...')}
+                                {processingLabel}
                             </p>
                             <p className="text-[10px] uppercase tracking-widest text-slate-400">
-                                {ocr.progress > 0 && ocr.progress < 100 ? 'Initializing AI Model' : 'Transformer Layer Processing'}
+                                {processingSubLabel}
                             </p>
                         </div>
                     </div>
@@ -255,6 +358,7 @@ const FormulaTool: React.FC = () => {
 
             <ConfirmationModal
                 open={showConfirmation}
+                mode={mode}
                 onConfirm={handleConfirmProcess}
                 onCancel={handleCancelProcess}
             />
